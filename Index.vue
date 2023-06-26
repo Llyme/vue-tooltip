@@ -247,7 +247,7 @@ export default Singleton({
 		<label
 			ref="label_node"
 			class="window absolute flex flex-fixed flex-col -white px-[18px] py-[6px] font-medium
-			border-[1px] border-black shadow-xl shrinkable overflow-y-auto max-w-[192px] text-center"
+			border-[1px] border-black shadow-xl shrinkable overflow-y-auto max-w-[256px] text-center"
 			:style="`left: ${left}px; top: ${top}px`"
 			:visible="visible"
 		>{{ text }}</label>
