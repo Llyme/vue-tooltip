@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { Reposition } from '@/quick/reposition';
+import { Singleton } from '@/lib/renderer/singleton';
 
 
 const TOUCH_DELAY = 500;
@@ -14,13 +15,13 @@ const ATTRIBUTE_SELECTED_KEYWORD = 'selected-tooltip';
 const IGNORE_ELLIPSES_KEYWORD = 'tooltip-ignore-ellipses';
 
 
-const text = ref<string>('');
-const visible = ref<Boolean>(false);
-const left = ref<number>(0);
-const top = ref<number>(0);
-const target = ref<HTMLElement>(null);
-const label_node = ref<HTMLElement>();
-const touch_timeout = ref<NodeJS.Timeout>(null);
+const $text = ref<string>('');
+const $visible = ref<boolean>(false);
+const $left = ref<number>(0);
+const $top = ref<number>(0);
+const $target = ref<HTMLElement>(null);
+const $label_node = ref<HTMLElement>();
+const $touch_timeout = ref<NodeJS.Timeout>(null);
 
 function Move_Internal(x0: number, y0: number, rect: DOMRect) {
 	let {x, y} =
@@ -30,8 +31,8 @@ function Move_Internal(x0: number, y0: number, rect: DOMRect) {
 			rect
 		);
 	
-	left.value = x;
-	top.value = y;
+	$left.value = x;
+	$top.value = y;
 }
 
 function Move_Touch(event: TouchEvent) {
@@ -42,7 +43,7 @@ function Move_Touch(event: TouchEvent) {
 	} = event.touches[0];
 
 	let rect =
-		label_node.value
+		$label_node.value
 		.getBoundingClientRect();
 	
 	Move_Internal(
@@ -59,7 +60,7 @@ function Move_Mouse(event: MouseEvent) {
 	} = event;
 
 	let rect =
-		label_node.value
+		$label_node.value
 		.getBoundingClientRect();
 	
 	Move_Internal(
@@ -102,60 +103,60 @@ function GetText(node: HTMLElement) {
 
 
 function Show(next_target: HTMLElement, text: string) {
-	target.value = next_target;
-	label_node.value.innerHTML = text;
-	visible.value = true;
+	$target.value = next_target;
+	$label_node.value.innerHTML = text;
+	$visible.value = true;
 }
 
 function Hide() {
-	visible.value = false;
+	$visible.value = false;
 }
 
 
 function OnTouchStart(event: TouchEvent) {
-	if (touch_timeout.value != null) {
-		clearTimeout(touch_timeout.value);
-		touch_timeout.value = null;
+	if ($touch_timeout.value != null) {
+		clearTimeout($touch_timeout.value);
+		$touch_timeout.value = null;
 	}
 
 	function Timeout() {
 		event.stopPropagation();
 
-		touch_timeout.value = null;
+		$touch_timeout.value = null;
 
 		let target0 = event.target as HTMLElement;
 		let text0 = GetText(target0);
 
-		if (!text)
+		if (!$text.value)
 			return;
 
 		Show(target0, text0);
 		Move_Touch(event);
 	}
 	
-	touch_timeout.value = setTimeout(Timeout, TOUCH_DELAY);
+	$touch_timeout.value = setTimeout(Timeout, TOUCH_DELAY);
 }
 
 function OnTouchEnd(event: TouchEvent) {
-	target.value = null;
-	visible.value = false;
+	$target.value = null;
+	$visible.value = false;
 	
 
-	if (touch_timeout.value == null)
+	if ($touch_timeout.value == null)
 		return;
 
-	clearTimeout(touch_timeout.value);
+	clearTimeout($touch_timeout.value);
 
-	touch_timeout.value = null;
+	$touch_timeout.value = null;
 }
 
 function OnTouchMove(event: TouchEvent) {
-	if (touch_timeout.value == null)
+	if ($touch_timeout.value == null)
 		return;
 
-	clearTimeout(touch_timeout.value);
+	clearTimeout($touch_timeout.value);
 
-	touch_timeout.value = null;
+	$touch_timeout.value = null;
 }
 
 
@@ -163,8 +164,8 @@ function OnPointerMove(event: PointerEvent) {
 	if (event.pointerType !== 'mouse')
 		return;
 
-	if (target.value != event.target) {
-		target.value = null;
+	if ($target.value != event.target) {
+		$target.value = null;
 
 		let target0 = event.target as HTMLElement;
 		let text = GetText(target0);
@@ -178,32 +179,24 @@ function OnPointerMove(event: PointerEvent) {
 	Move_Mouse(event);
 }
 
+function OnPointerDown(event: PointerEvent) {
+	Hide();
+}
+
 
 defineExpose({
-	Text: computed({
-		get() {
-			return text.value;
-		},
-
-		set(value) {
-			text.value = value;
-		}
-	}),
-
-	Visible: computed({
-		get() {
-			return visible.value;
-		},
-
-		set(value) {
-			visible.value = value;
-		}
-	})
+	$text,
+	$visible
 });
 
+defineOptions(Singleton({
+	name: 'Tooltip'
+}));
 
 window
 .addEventListener('pointermove', OnPointerMove);
+window
+.addEventListener('pointerdown', OnPointerDown);
 window
 .addEventListener('touchstart', OnTouchStart);
 window
@@ -212,13 +205,19 @@ window
 .addEventListener('touchmove', OnTouchMove);
 </script>
 
-<script lang="ts">
-import { Singleton } from '@/lib/renderer/singleton';
-
-export default Singleton({
-	name: 'Tooltip'
-});
-</script>
+<template>
+  <div
+    class="root absolute top-0 left-0 w-full h-full"
+  >
+    <label
+      ref="$label_node"
+      class="window absolute flex flex-fixed flex-col -white px-[18px] py-[6px] font-medium
+			border-[1px] border-black shadow-xl shrinkable overflow-y-auto max-w-[256px] text-center"
+      :style="`left: ${$left}px; top: ${$top}px`"
+      :visible="$visible"
+    >{{ $text }}</label>
+  </div>
+</template>
 
 <style scoped>
 @import '@/styles/size.css';
@@ -239,17 +238,3 @@ export default Singleton({
 }
 
 </style>
-
-<template>
-	<div
-		class="root absolute top-0 left-0 w-full h-full"
-	>
-		<label
-			ref="label_node"
-			class="window absolute flex flex-fixed flex-col -white px-[18px] py-[6px] font-medium
-			border-[1px] border-black shadow-xl shrinkable overflow-y-auto max-w-[256px] text-center"
-			:style="`left: ${left}px; top: ${top}px`"
-			:visible="visible"
-		>{{ text }}</label>
-	</div>
-</template>
